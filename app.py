@@ -1,22 +1,56 @@
 from flask import Flask
-from flask import render_template
+from flask import session
+from flask import redirect
+from flask import url_for
+from flask import escape
 from flask import request
+from flask import render_template
+import planisphere
+
 
 app = Flask(__name__)
 
-@app.route('/hello', methods=['POST', 'GET'])
+@app.route('/')
 def index():
-    greeting = "Hello World"
+    # this is used to 'setup' the session with starting values
+    session['room'] = planisphere.START
+    session['help'] = False
+    return redirect(url_for('game'))
 
-    if request.method == 'POST':
-        name = request.form['name']
-        greet = request.form['greet']
-        greeting = f"{greet}, {name}"
-        return render_template("index_laid_out.html", greeting=greeting)
+
+@app.route('/game', methods=['GET', 'POST'])
+def game():
+    room_name = session.get('room_name')
+
+    if request.method == 'GET':
+        if room_name:
+            room = planisphere.load_room(room_name)
+            help = session['help']
+            session['help'] = False
+            return render_template("show_room.html", room=room, help=help)
+        else:
+            # why is this here? do you need it?
+            return render_template("you_died.html")
     else:
-        return render_template("hello_form_laid_out.html")
+        action = request.form.get('action')
+        next_room = None
 
+        if room_name and action:
+            room = planisphere.load_room(room_name)
+            if action == 'help':
+                session['help'] = True
+            else:
+                next_room = room.go(action)
 
+            if not next_room:
+                session['room_name'] = planisphere.name_room(room)
+            else:
+                session['room_name'] = planisphere.name_room(next_room)
+
+            return redirect(url_for('game'))
+
+app.secret_key = 'A\B-F@W I,T/O7?0%LO>?WND*J&F${%['
 
 if __name__=='__main__':
+    # app.run(host='192.168.1.4', port=5000, debug=True)
     app.run()
